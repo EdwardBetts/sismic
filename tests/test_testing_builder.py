@@ -1,8 +1,10 @@
 import unittest
-from sismic.temporal_testing import *
+
 from sismic.interpreter import Interpreter
-from sismic.model import Event, Statechart, CompoundState, BasicState, Transition
+from sismic.model import Event
+from sismic.stories import Story
 from sismic.testing import teststory_from_trace
+from sismic.testing.builder import *
 
 
 class UniqueIdProviderTest(unittest.TestCase):
@@ -50,12 +52,12 @@ class PropertiesTests(unittest.TestCase):
         tester_statechart.add_state(BasicState('success_state'), parent='testing_area')
         tester_statechart.add_state(BasicState('failure_state'), parent='testing_area')
 
-        property.add_to(tester_statechart,
-                        condition_id='property',
-                        parent_id='testing_area',
-                        status_id='parallel_state',
-                        success_id='success_state',
-                        failure_id='failure_state')
+        property.add_to_statechart(tester_statechart,
+                                   condition_state='property',
+                                   parent_state='testing_area',
+                                   status_state='parallel_state',
+                                   success_state='success_state',
+                                   failure_state='failure_state')
 
         tester_interpreter = Interpreter(tester_statechart)
 
@@ -89,10 +91,10 @@ class PropertiesTests(unittest.TestCase):
             ('foo', ConsumeAnyEvent()),
             ('foo', ConsumeAnyEventBut('bar')),
             ('foo', ConsumeAnyEventBut('bar', 'baz')),
-            ('foo', ExecutionStart()),
-            ('foo', ExecutionStop()),
+            ('foo', StartExecution()),
+            ('foo', StopExecution()),
             ('foo', StartStep()),
-            ('foo', ExecutionStop()),
+            ('foo', StopExecution()),
             ('event', TransitionProcess()),
             ('event', TransitionProcess(event='event')),
             ('event', TransitionProcess(source='a_state')),
@@ -139,12 +141,12 @@ class PropertiesTests(unittest.TestCase):
         statechart.add_state(BasicState('success'), parent='initial_state')
         statechart.add_state(BasicState('failure'), parent='initial_state')
 
-        CheckGuard('x == 1').add_to(statechart=statechart,
-                                    condition_id='condition',
-                                    parent_id='initial_state',
-                                    status_id='parallel_state',
-                                    success_id='success',
-                                    failure_id='failure')
+        CheckGuard('x == 1').add_to_statechart(statechart=statechart,
+                                               condition_state='condition',
+                                               parent_state='initial_state',
+                                               status_state='parallel_state',
+                                               success_state='success',
+                                               failure_state='failure')
 
         interpreter = Interpreter(statechart)
         interpreter.context['x'] = 1
@@ -162,12 +164,12 @@ class PropertiesTests(unittest.TestCase):
         statechart.add_state(BasicState('success'), parent='initial_state')
         statechart.add_state(BasicState('failure'), parent='initial_state')
 
-        CheckGuard('x == 1').add_to(statechart=statechart,
-                                    condition_id='condition',
-                                    parent_id='initial_state',
-                                    status_id='parallel_state',
-                                    success_id='success',
-                                    failure_id='failure')
+        CheckGuard('x == 1').add_to_statechart(statechart=statechart,
+                                               condition_state='condition',
+                                               parent_state='initial_state',
+                                               status_state='parallel_state',
+                                               success_state='success',
+                                               failure_state='failure')
 
         interpreter = Interpreter(statechart)
         interpreter.context['x'] = 42
@@ -238,12 +240,12 @@ class OperatorsTest(unittest.TestCase):
         statechart.add_state(BasicState('success'), 'initial_state')
         statechart.add_state(BasicState('failure'), 'initial_state')
 
-        condition.add_to(statechart=statechart,
-                         condition_id='Cond',
-                         parent_id='initial_state',
-                         status_id='parallel_state',
-                         success_id='success',
-                         failure_id='failure')
+        condition.add_to_statechart(statechart=statechart,
+                                    condition_state='Cond',
+                                    parent_state='initial_state',
+                                    status_state='parallel_state',
+                                    success_state='success',
+                                    failure_state='failure')
 
         interpreter = Interpreter(statechart)
 
@@ -391,54 +393,55 @@ class ConditionOperatorTests(unittest.TestCase):
 
 class ReprTest(unittest.TestCase):
     def test_operators(self):
-        for expected, condition in [
-            ('TrueCondition()', TrueCondition()),
-            ('FalseCondition()', FalseCondition()),
-            ('UndeterminedCondition()', UndeterminedCondition()),
-            ('And(TrueCondition(), FalseCondition())', And(TrueCondition(), FalseCondition())),
-            ('Or(TrueCondition(), FalseCondition())', Or(TrueCondition(), FalseCondition())),
-            ('Not(TrueCondition())', Not(TrueCondition())),
-            ('Xor(TrueCondition(), FalseCondition())', Xor(TrueCondition(), FalseCondition())),
-            ('Before(TrueCondition(), FalseCondition())', Before(TrueCondition(), FalseCondition())),
-            ('Then(TrueCondition(), FalseCondition())', Then(TrueCondition(), FalseCondition())),
-            ('During(TrueCondition(), 10, 42)', During(TrueCondition(), 10, 42)),
-            ('DelayedTrueCondition(42)', DelayedTrueCondition(42)),
-            ('DelayedFalseCondition(42)', DelayedFalseCondition(42)),
-            ('IfElse(TrueCondition(), TrueCondition(), FalseCondition())', IfElse(TrueCondition(),
-                                                                                  TrueCondition(),
-                                                                                  FalseCondition())),
-            ('DelayedCondition(TrueCondition(), 42)', DelayedCondition(TrueCondition(), 42))
+        for condition in [
+            'TrueCondition()',
+            'FalseCondition()',
+            'UndeterminedCondition()',
+            'And(TrueCondition(), FalseCondition())',
+            'Or(TrueCondition(), FalseCondition())',
+            'Not(TrueCondition())',
+            'Xor(TrueCondition(), FalseCondition())',
+            'Before(TrueCondition(), FalseCondition())',
+            'Then(TrueCondition(), FalseCondition())',
+            'During(TrueCondition(), 10, 42)',
+            'DelayedTrueCondition(42)',
+            'DelayedFalseCondition(42)',
+            'IfElse(TrueCondition(), TrueCondition(), FalseCondition())',
+            'DelayedCondition(TrueCondition(), 42)',
+            'SynchronousCondition(TrueCondition())'
         ]:
-            with self.subTest(expected=expected, condition=condition):
-                self.assertEqual(expected, condition.__repr__())
+            with self.subTest(condition=condition):
+                instance = eval(condition)
+                self.assertEqual(condition, instance.__repr__())
 
     def test_properties(self):
-        for (expected, condition) in [
-            ("EnterState('foo')", EnterState('foo')),
-            ("EnterState('foo', 'bar')", EnterState('foo', 'bar')),
-            ('EnterAnyState()', EnterAnyState()),
-            ("ExitState('foo')", ExitState('foo')),
-            ("ExitState('foo', 'bar')", ExitState('foo', 'bar')),
-            ('ExitAnyState()', ExitAnyState()),
-            ('CheckGuard("foo")', CheckGuard('foo')),
-            ("ConsumeEvent('foo')", ConsumeEvent('foo')),
-            ("ConsumeEvent('foo', 'bar')", ConsumeEvent('foo', 'bar')),
-            ('ConsumeAnyEvent()', ConsumeAnyEvent()),
-            ("ConsumeAnyEventBut('foo')", ConsumeAnyEventBut('foo')),
-            ("ConsumeAnyEventBut('foo', 'bar')", ConsumeAnyEventBut('foo', 'bar')),
-            ('ExecutionStart()', ExecutionStart()),
-            ('ExecutionStop()', ExecutionStop()),
-            ('StartStep()', StartStep()),
-            ('EndStep()', EndStep()),
-            ('TransitionProcess(None, None, None)', TransitionProcess()),
-            ('TransitionProcess("foo", None, None)', TransitionProcess(source='foo')),
-            ('TransitionProcess(None, "foo", None)', TransitionProcess(target='foo')),
-            ('TransitionProcess(None, None, "foo")', TransitionProcess(event='foo')),
-            ('InactiveState("foo")', InactiveState('foo')),
-            ('ActiveState("foo")', ActiveState('foo'))
+        for condition in [
+            "EnterState('foo')",
+            "EnterState('foo', 'bar')",
+            'EnterAnyState()',
+            "ExitState('foo')",
+            "ExitState('foo', 'bar')",
+            'ExitAnyState()',
+            'CheckGuard("foo")',
+            "ConsumeEvent('foo')",
+            "ConsumeEvent('foo', 'bar')",
+            'ConsumeAnyEvent()',
+            "ConsumeAnyEventBut('foo')",
+            "ConsumeAnyEventBut('foo', 'bar')",
+            'StartExecution()',
+            'StopExecution()',
+            'StartStep()',
+            'EndStep()',
+            'TransitionProcess()',
+            'TransitionProcess(source="foo")',
+            'TransitionProcess(target="foo")',
+            'TransitionProcess(event="foo")',
+            'InactiveState("foo")',
+            'ActiveState("foo")'
         ]:
-            with self.subTest(condition=condition, expected=expected):
-                self.assertEqual(expected, condition.__repr__())
+            with self.subTest(condition=condition):
+                instance = eval(condition)
+                self.assertEqual(condition, instance.__repr__())
 
     def test_temporal_expression(self):
         for expected, condition in [
@@ -456,13 +459,10 @@ class TemporalTests(unittest.TestCase):
         self.story = [Event(Condition.STEP_ENDED_EVENT), Event(Condition.STEP_ENDED_EVENT), Event('execution stopped')]
 
     def generic_temporal_test(self, expression: TemporalExpression, story: list, accept_after: bool):
-        # Todo: convert the story list into a 'real' story that can be told to an interpreter
         statechart = expression.generate_statechart()
         interpreter = Interpreter(statechart)
 
-        for event in story:
-            interpreter.queue(event)
-
+        Story(story).tell(interpreter)
         interpreter.execute()
 
         self.assertEqual(len(interpreter.configuration) == 0, accept_after)
